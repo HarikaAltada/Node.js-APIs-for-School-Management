@@ -1,5 +1,6 @@
 const db = require('../config/db');
 
+
 // Haversine Formula to calculate distance
 const calculateDistance = (lat1, lon1, lat2, lon2) => {
     const toRad = (value) => (value * Math.PI) / 180;
@@ -17,42 +18,45 @@ const calculateDistance = (lat1, lon1, lat2, lon2) => {
 };
 
 // ✅ Add a New School
-const addSchool = (req, res) => {
-    const { name, address, latitude, longitude } = req.body;
-
-    db.query('INSERT INTO schools (name, address, latitude, longitude) VALUES (?, ?, ?, ?)',
-        [name, address, latitude, longitude], 
-        (err, result) => {
-            if (err) {
-                return res.status(500).json({ error: err.message });
-            }
-            res.status(201).json({ message: 'School added successfully', schoolId: result.insertId });
-        }
-    );
+const addSchool = async (req, res) => {
+    try {
+        const { name, address, latitude, longitude } = req.body;
+        const [result] = await db.query(
+            'INSERT INTO schools (name, address, latitude, longitude) VALUES (?, ?, ?, ?)',
+            [name, address, latitude, longitude]
+        );
+        res.status(201).json({ message: 'School added successfully', schoolId: result.insertId });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 };
 
 // ✅ List Schools Sorted by Proximity
-const listSchools = (req, res) => {
-    const { latitude, longitude } = req.query;
+const listSchools = async (req, res) => {
+    try {
+        const { latitude, longitude } = req.query;
 
-    if (!latitude || !longitude || isNaN(latitude) || isNaN(longitude)) {
-        return res.status(400).json({ error: 'Invalid latitude or longitude' });
-    }
+        if (!latitude || !longitude || isNaN(latitude) || isNaN(longitude)) {
+            return res.status(400).json({ error: 'Invalid latitude or longitude' });
+        }
 
-    db.query('SELECT * FROM schools', (err, results) => {
-        if (err) return res.status(500).json({ error: err.message });
+        const [results] = await db.query('SELECT * FROM schools');
 
-        // Sort schools by distance from user's location
+        // Parse latitude and longitude before calculation
         const userLat = parseFloat(latitude);
         const userLon = parseFloat(longitude);
 
         const sortedSchools = results.map(school => ({
             ...school,
-            distance: calculateDistance(userLat, userLon, school.latitude, school.longitude)
+            latitude: parseFloat(school.latitude), // Ensure numbers
+            longitude: parseFloat(school.longitude),
+            distance: calculateDistance(userLat, userLon, parseFloat(school.latitude), parseFloat(school.longitude))
         })).sort((a, b) => a.distance - b.distance);
 
         res.json(sortedSchools);
-    });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 };
 
 module.exports = { addSchool, listSchools };

@@ -12,4 +12,4 @@ const validateSchoolData = (req, res, next) => {
     next();
 };
 
-module.exports = { validateSchoolData };
+module.exports = validateSchoolData;
